@@ -43,14 +43,16 @@ python main.py -p -i path/to/image -m path/to/ocr/model
 This works well with plain text. It's good if the characters have the same size.
 
 <p> <img src="./1.jpg", width=50%></p>
-```
+
+
+~~~
 Text Today Message 16 40 
 Its Emma I tried to call you but
 signal bad. |bee n taken to
 hosoital after having a fall this
 morning If possible can you do
 me a quick favour ano te Xt me
-```
+~~~
 
 #### Text detection 
 ```
