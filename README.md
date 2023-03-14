@@ -2,7 +2,7 @@
 
 This project includes 2 networks. The first is for detecting text on images, the second is for recognition.
 PixelLink + VGG16 2s was used for detection. I implemented the model (only testing, no training) and carried out the transfer of weights from TF Checkpoints to h5 weights. You can find the original implementation and weights [here](https://github.com/ZJULearning/pixel_link/tree/00cb9aacc80583a8aba77d6834748ab4cca03254).
-CRNN + CTC was used for text recognition. The training data was generated using [SynthTIGER](https://github.com/clovaai/synthtiger). The network is not deep, because I am limited in computing power. The training was carried out on an insufficiently large amount of data for the same reason.
+CRNN + CTC was used for text recognition. The training data was generated using [SynthTIGER](https://github.com/clovaai/synthtiger). The network is not deep, because I am limited in computing power. 
 
 ## Prerequisite
 I have used these packages. You can probably use older versions as well. Haven't tested this.
