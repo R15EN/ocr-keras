@@ -41,8 +41,7 @@ def prediction(path_to_image, path_to_model):
     image = cv2.imread(path_to_image)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     image, bboxes = det_predict(image)
-    
-    image = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)[..., None]
+
     boxes = coordinate_transform(bboxes)
     boxes = sort_boxes(boxes)
     

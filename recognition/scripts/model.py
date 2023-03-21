@@ -38,30 +38,30 @@ def BiLSTM(units, x):
     x = Bidirectional(LSTM(units, return_sequences=True, dropout=0.25))(x)
     return x
 
-def ocr_model(image_width, image_height, char_to_num):
+def ocr_model(image_width, image_height, char_set):
 
     input_img = tf.keras.Input(shape=(image_width, image_height, 3), name="image")
     labels = tf.keras.layers.Input(name="label", shape=(None,))
 
     # Conv block 1
-    x = conv_block(32, input_img, 'conv1', 'pool1')
+    x = conv_block(64, input_img, 'conv1', 'pool1')
 
     # Conv block 2
-    x = conv_block(64, x, 'conv2', 'pool2')
+    x = conv_block(128, x, 'conv2', 'pool2')
     
     # Conv block 3
-    x = conv_block(128, x, 'conv3', 'pool3')
+    x = conv_block(256, x, 'conv3', 'pool3')
 
-    new_shape = ((image_width // 8), (image_height // 8) * 128)
+    new_shape = ((image_width // 8), (image_height // 8) * 256)
     x = Reshape(target_shape=new_shape, name="reshape")(x)
     x = Dense(256, activation="relu", name="dense1")(x)
     x = Dropout(0.2)(x)
     
     # RNNs.
     x = BiLSTM(266, x)
-    x = BiLSTM(128, x)
+    x = BiLSTM(256, x)
 
-    x = Dense(len(char_to_num.get_vocabulary()) + 2, activation="softmax", name="dense2")(x)
+    x = Dense(len(char_set) + 2, activation="softmax", name="dense2")(x)
 
     output = CTCLayer(name="ctc_loss")(labels, x)
 

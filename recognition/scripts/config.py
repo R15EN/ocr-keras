@@ -8,4 +8,4 @@ path_to_model = osp.join(base_path, 'trained_model', 'ocr_model')
 
 image_size = (256, 64)
 epochs = 50
-batch_size = 128
+batch_size = 64

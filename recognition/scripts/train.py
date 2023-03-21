@@ -6,32 +6,29 @@ import recognition.scripts.config as config
 import recognition.scripts.utils as utils
 import recognition.scripts.metrics as metrics
 from recognition.scripts.model import ocr_model
-from recognition.scripts.dataset import OCRDataset
+from recognition.scripts.dataset import OCRDataGenerator
 
-class Callback(tf.keras.callbacks.Callback):
-    def __init__(self, pred_model, validation_images, validation_labels, max_len, num_to_char):
+class MetricsCallback(tf.keras.callbacks.Callback):
+    def __init__(self, pred_model, validation_ds, char_set, max_len, pad_token):
         super().__init__()
         self.prediction_model = pred_model
-        self.validation_images = validation_images
-        self.validation_labels = validation_labels
+        self.validation_ds = validation_ds
+        self.char_set = char_set
         self.max_len = max_len
-        self.num_to_char = num_to_char
+        self.pad = pad_token
     
     def on_epoch_end(self, epoch, logs=None):
         pred_texts = []
         true_texts = []
         
-        labels = self.num_to_char(self.validation_labels)
-        predictions = self.prediction_model.predict(self.validation_images)
-        predictions = self.decode_predictions(predictions)
-        
-        for i in range(len(labels)):
-            label = tf.strings.reduce_join(labels[i]) \
-                .numpy() \
-                .decode('utf-8') \
-                .replace('[UNK]', '')
-            pred_texts.append(predictions[i])
-            true_texts.append(label)
+        for batch in self.validation_ds:
+            predictions = self.prediction_model.predict(batch['image'], verbose=0)
+            predictions = utils.decode_predictions(predictions, self.max_len, self.char_set)
+            for i, label in enumerate(batch['label']):
+                label = tf.gather(label, tf.where(tf.math.not_equal(label, self.pad))).numpy().ravel()
+                label = ''.join([self.char_set[int(j)] for j in label])
+                pred_texts.append(predictions[i])
+                true_texts.append(label)
             
         print(
             f"CER for epoch {epoch + 1}: {metrics.cer(true_texts, pred_texts):.4f}", 
@@ -39,18 +36,6 @@ class Callback(tf.keras.callbacks.Callback):
             sep='\n'
         )  
 
-    def decode_predictions(self, pred):
-        input_len = np.ones(pred.shape[0]) * pred.shape[1]
-
-        results = tf.keras.backend.ctc_decode(
-            pred, input_length=input_len, greedy=True)[0][0][:, :self.max_len]
-
-        output_text = []
-        for res in results:
-            res = tf.gather(res, tf.where(tf.math.not_equal(res, -1)))
-            res = tf.strings.reduce_join(self.num_to_char(res)).numpy().decode("utf-8")
-            output_text.append(res)
-        return output_text
 
 def train_model(save_path=config.path_to_model, 
                 path_to_images=config.path_to_images, 
@@ -61,7 +46,6 @@ def train_model(save_path=config.path_to_model,
         tuple([os.path.join(path_to_images, path.split('/', 1)[1]), label]) 
         for path, label in paths_and_labels
     ] 
-    # paths_and_labels = paths_and_labels[:80000]
     
     train_samples, validation_samples = \
         utils.split_data(paths_and_labels, test_size=0.1)
@@ -75,41 +59,33 @@ def train_model(save_path=config.path_to_model,
     test_image_paths, test_labels = \
         utils.get_paths_and_labels(test_samples)
 
-    characters = sorted(set(''.join(train_labels)))
+    char_set = [''] + sorted(set(''.join(train_labels)))
     max_len = len(max(train_labels, key=len))
+    pad_token = len(char_set) + 5
     
-    ds_params = {'vocabulary': characters, 
-                 'max_word_length': max_len,
-                 'image_size': config.image_size,
-                 'batch_size': config.batch_size} 
-    dataset = OCRDataset(**ds_params)
+    ds_params = {
+        'batch_size': config.batch_size,
+        'image_size': config.image_size,
+        'max_text_len': max_len,
+        'char_set': char_set,
+        'pad_token': pad_token
+    } 
 
-    train_ds = dataset.prepare_dataset(train_image_paths, train_labels)
-    validation_ds = dataset.prepare_dataset(validation_image_paths, validation_labels)
-    test_ds = dataset.prepare_dataset(test_image_paths, test_labels)
+    train_ds = OCRDataGenerator(train_image_paths, train_labels, **ds_params)
+    validation_ds = OCRDataGenerator(validation_image_paths, validation_labels, **ds_params)
+    test_ds = OCRDataGenerator(test_image_paths, test_labels, **ds_params)
     
-    char_to_num = dataset.char_to_num
-    num_to_char = dataset.num_to_char
-
-    validation_images = []
-    validation_labels = []
-    for batch in validation_ds:
-        validation_images.append(batch["image"])
-        validation_labels.append(batch["label"])    
-    validation_images = tf.concat([*validation_images], axis=0)
-    validation_labels = tf.concat([*validation_labels], axis=0)
-    
-    model = ocr_model(*config.image_size, char_to_num)
+    model = ocr_model(*config.image_size, char_set=char_set)
     prediction_model = tf.keras.models.Model(
         model.get_layer(name="image").input, model.get_layer(name="dense2").output
     )
     
-    callback = Callback(
+    metrics_callback = MetricsCallback(
         prediction_model, 
-        validation_images,
-        validation_labels,
+        validation_ds,
+        char_set,
         max_len,
-        num_to_char
+        pad_token
     )
     
     # Train the model.
@@ -117,7 +93,7 @@ def train_model(save_path=config.path_to_model,
         train_ds,
         validation_data=validation_ds,
         epochs=config.epochs,
-        callbacks=callback,
+        callbacks=metrics_callback,
     )
     
     print(model.evaluate(test_ds))
