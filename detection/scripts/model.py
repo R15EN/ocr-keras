@@ -104,8 +104,8 @@ def pixel_link_model(input_shape):
         lambda_layer(upsample, sum_layers(up1_link, conv4_3_link), name='upsample2_link')
 
     up3_cls, up3_link = \
-        lambda_layer(upsample, sum_layers(up2_cls, conv3_3_cls), name='upsample3_cls'), \
-        lambda_layer(upsample, sum_layers(up2_link, conv3_3_link), name='upsample3_link')
+        sum_layers(up2_cls, conv3_3_cls), \
+        sum_layers(up2_link, conv3_3_link)
 
     out_cls, out_link = up3_cls, up3_link
 

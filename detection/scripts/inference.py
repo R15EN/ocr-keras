@@ -8,7 +8,7 @@ import cv2
 import numpy as np
 from tensorflow.nn import softmax
 
-def create_model(image_shape, h5=False):
+def create_model(image_shape, h5=True):
     model = pixel_link_model(image_shape)
     if h5: 
         model.load_weights(config.weight_path)
@@ -23,7 +23,6 @@ def predict(image):
     model = create_model(image.shape)
     
     img_col_corr = image - config.rgb_mean
-    
     cls_scores, link_scores = model.predict(img_col_corr[None, ...])
 
     cls_scores = softmax(cls_scores).numpy()
@@ -39,17 +38,16 @@ def predict(image):
 
     return image, bboxes
 
-def inference(path_to_image, vis=True):    
-    image = cv2.imread(path_to_image)
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+def inference(path_to_image, viz=True):    
+    image = cv2.imread(path_to_image)[...,::-1]
 
     image, bboxes = predict(image)
     
     for bbox in bboxes:
         cv2.drawContours(image, [bbox], 0, (0, 0, 255), 2)
         
-    if vis:
-        cv2.imshow('image', image)
+    if viz:
+        cv2.imshow('image', image[...,::-1])
         cv2.waitKey(0)
 
     return image
