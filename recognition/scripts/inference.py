@@ -3,9 +3,7 @@ from recognition.scripts.utils import load_dataset_config, decode_predictions, v
 from recognition.scripts.dataset import OCRDataGenerator
 
 import os
-import numpy as np
 import tensorflow as tf
-import matplotlib.pyplot as plt
 
 def predict(images, path_to_model):
     model = tf.keras.models.load_model(path_to_model)
@@ -17,21 +15,20 @@ def predict(images, path_to_model):
     image_size = ds_config['image_size']
     max_len = ds_config['max_text_len']
     char_set = ds_config['char_set']
-    
-    dataset = OCRDataGenerator([''], [''], **ds_config)
 
     for i, image in enumerate(images):
-        images[i] = dataset.distortion_free_resize(image, image_size)
+        images[i] = OCRDataGenerator.distortion_free_resize(image, image_size)
     images = tf.stack([*images])
     
     preds = prediction_model.predict(images)
     pred_texts = decode_predictions(preds, max_len, char_set)
+    
     return images, pred_texts
 
 def inference(path_to_images, path_to_model=config.path_to_model, viz=True):
     name_images = os.listdir(path_to_images)    
     paths = [os.path.join(path_to_images, name) for name in name_images]
-    np.random.shuffle(paths)
+    
     paths = paths[:16]
     images = []
     for path in paths:
@@ -40,6 +37,7 @@ def inference(path_to_images, path_to_model=config.path_to_model, viz=True):
         images.append(image)
 
     images, predictions = predict(images, path_to_model)
+    
     if viz: visualize_predictions(images, predictions)
     
     return images, predictions

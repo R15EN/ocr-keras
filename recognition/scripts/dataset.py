@@ -52,7 +52,8 @@ class OCRDataGenerator(Sequence):
                 encoded_texts[i, j] = char_map[c]
         return encoded_texts
         
-    def distortion_free_resize(self, image, img_size):
+    @staticmethod
+    def distortion_free_resize(image, img_size):
         width, height = img_size
         base_width, base_height = image.shape[1], image.shape[0]
         top_pad, bot_pad = 0, 0
