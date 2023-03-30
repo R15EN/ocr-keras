@@ -42,7 +42,8 @@ def decode_predictions(pred, max_len, char_set):
 
     output_text = []
     for res in results:
-        res = tf.gather(res, tf.where(tf.math.not_equal(res, -1))).numpy().ravel()
+        res = tf.gather(res, tf.where(tf.math.not_equal(res, -1)))
+        res = tf.reshape(res, [-1])
         res = ''.join([char_set[int(i)] for i in res])
         output_text.append(res)
     return output_text

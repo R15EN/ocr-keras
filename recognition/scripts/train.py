@@ -1,5 +1,5 @@
 import os
-import numpy as np
+import gc
 import tensorflow as tf
 
 import recognition.scripts.config as config
@@ -16,26 +16,35 @@ class MetricsCallback(tf.keras.callbacks.Callback):
         self.char_set = char_set
         self.max_len = max_len
         self.pad = pad_token
+        self.pred_texts = []
+        self.gt_texts = []
     
     def on_epoch_end(self, epoch, logs=None):
-        pred_texts = []
-        true_texts = []
+        self.pred_texts = []
+        self.gt_texts = []
         
         for batch in self.validation_ds:
             predictions = self.prediction_model.predict(batch['image'], verbose=0)
             predictions = utils.decode_predictions(predictions, self.max_len, self.char_set)
-            for i, label in enumerate(batch['label']):
-                label = tf.gather(label, tf.where(tf.math.not_equal(label, self.pad))).numpy().ravel()
-                label = ''.join([self.char_set[int(j)] for j in label])
-                pred_texts.append(predictions[i])
-                true_texts.append(label)
             
-        print(
-            f"CER for epoch {epoch + 1}: {metrics.cer(true_texts, pred_texts):.4f}", 
-            f"WER for epoch {epoch + 1}: {metrics.wer(true_texts, pred_texts):.4f}",
-            sep='\n'
-        )  
+            for i, label in enumerate(batch['label']):
+                label = tf.gather(label, tf.where(tf.math.not_equal(label, self.pad)))
+                label = tf.reshape(label, [-1])
+                label = ''.join([self.char_set[int(j)] for j in label])
+                self.pred_texts.append(predictions[i])
+                self.gt_texts.append(label)
+                
+        cer_score = metrics.cer(self.gt_texts, self.pred_texts)
+        wer_score = metrics.wer(self.gt_texts, self.pred_texts)
 
+        print(
+            f"CER for epoch {epoch + 1}: {cer_score:.4f}",
+            f"WER for epoch {epoch + 1}: {wer_score:.4f}",
+            sep='\n'
+        )
+        
+        gc.collect()
+        tf.keras.backend.clear_session()
 
 def train_model(save_path=config.path_to_model, 
                 path_to_images=config.path_to_images, 
@@ -96,7 +105,7 @@ def train_model(save_path=config.path_to_model,
         callbacks=metrics_callback,
     )
     
-    print(model.evaluate(test_ds))
+    print('Test data evaluate:', model.evaluate(test_ds))
     
     model.save(save_path)
     utils.save_dataset_config(config.data_path, ds_params)
